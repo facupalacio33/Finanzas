@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finanzas">
+<meta name="theme-color" content="#0a1506">
+<title>💰 Mis Finanzas</title>
+<script src="https://accounts.google.com/gsi/client" async defer onerror="console.warn('GIS failed to load')"></script>
+<script src="https://apis.google.com/js/api.js" async defer onerror="console.warn('GAPI failed to load')"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0a1506; font-family: 'DM Mono', monospace; color: white; }
+  body { min-height: 100vh; background: #0a1506;
+    background-image: radial-gradient(ellipse at 20% 0%, rgba(60,120,20,0.15) 0%, transparent 50%),
+                      radial-gradient(ellipse at 80% 100%, rgba(20,80,60,0.1) 0%, transparent 50%);
+  }
+  input, select, button { font-family: 'DM Mono', monospace; }
+  input { outline: none; color-scheme: dark; }
+  input::placeholder { color: rgba(255,255,255,0.2); }
+  select { outline: none; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+  #app { max-width: 980px; margin: 0 auto; padding: 20px 16px 100px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* NAV — fixed bottom on mobile */
+  #nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 10px 8px 14px;
+    background: rgba(10,21,6,0.95); backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .nav-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 10px; border-radius: 10px; border: none; cursor: pointer;
+    background: transparent; color: rgba(255,255,255,0.4);
+    font-family: 'DM Mono', monospace; font-size: 9px; transition: all 0.18s;
+    min-width: 52px;
+  }
+  .nav-btn .nav-icon { font-size: 18px; line-height: 1; }
+  .nav-btn.active { color: #0a1a06; background: #c8f0b0; }
+  .nav-btn.active-btc { color: #1a0800; background: #f7931a; }
+
+  /* HEADER */
+  #header { display: flex; justify-content: space-between; align-items: flex-start; }
+  #header h1 { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; }
+  #header .sub { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 3px; }
+
+  /* CARD */
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px; padding: 18px;
+  }
+  .card-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card-grid-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media(min-width:600px) { .card-grid-3 { grid-template-columns: repeat(4,1fr); } }
+
+  /* STAT CARD */
+  .stat-card { display: flex; flex-direction: column; gap: 6px; }
+  .stat-label { font-size: 10px; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+  .stat-value { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; line-height: 1.1; }
+  .stat-sub { font-size: 10px; color: rgba(255,255,255,0.35); }
+
+  /* SECTION */
+  .section { display: flex; flex-direction: column; gap: 14px; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; }
+  .section-title { font-family: 'Playfair Display', serif; font-size: 20px; }
+
+  /* BUTTONS */
+  .btn { padding: 10px 18px; border-radius: 12px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.18s; }
+  .btn-green { background: #c8f0b0; color: #0a1a06; }
+  .btn-teal  { background: #86d9c8; color: #061a18; }
+  .btn-yellow{ background: #f0d080; color: #1a1400; }
+  .btn-orange{ background: #f7931a; color: #1a0800; font-weight: 700; }
+  .btn-cancel{ background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
+
+  /* TOGGLE */
+  .toggle { display: flex; gap: 3px; padding: 4px; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.07); }
+  .toggle-btn { padding: 7px 14px; border-radius: 9px; border: none; cursor: pointer; font-size: 12px; font-weight: 500; background: transparent; color: rgba(255,255,255,0.45); transition: all 0.18s; }
+  .toggle-btn.active-g { background: #f0d080; color: #1a1400; }
+  .toggle-btn.active-i { background: #86d9c8; color: #061a18; }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-label { font-size: 10px; color: rgba(255,255,255,0.35); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.07em; }
+  .form-input {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 10px 12px; color: white;
+    font-size: 13px; width: 100%;
+  }
+  .form-input:focus { border-color: rgba(255,255,255,0.25); }
+  .btn-submit { margin-top: 14px; width: 100%; padding: 12px; border-radius: 12px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+  /* TABLE */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .tbl th { padding: 12px 14px; text-align: left; font-size: 9px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 400; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .tbl td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .tbl-wrap { overflow-x: auto; }
+  .badge { padding: 2px 8px; border-radius: 20px; font-size: 10px; display: inline-block; }
+
+  /* PIE */
+  .pie-legend { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+  .pie-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+  .pie-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; flex-shrink:0; }
+
+  /* BAR */
+  .bar-dist { display: flex; height: 18px; border-radius: 8px; overflow: hidden; margin-top: 4px; }
+  .bar-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .bar-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,0.55); }
+  .bar-swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+  /* CHART area (canvas-based) */
+  canvas { width: 100% !important; }
+
+  /* BTC preview box */
+  .btc-preview { margin-top: 10px; padding: 10px 12px; background: rgba(247,147,26,0.08); border-radius: 10px; font-size: 12px; color: rgba(255,255,255,0.6); }
+
+  /* Page visibility */
+  .page { display: none; }
+  .page.active { display: flex; flex-direction: column; gap: 14px; }
+
+  /* Stack bar for accounts */
+  .progress-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); margin-top: 4px; }
+  .progress-fill { height: 100%; border-radius: 2px; }
+
+  /* Connected badge */
+  .conn-badge { font-size: 10px; }
+  .conn-on  { color: #c8f0b0; }
+  .conn-off { color: rgba(255,255,255,0.3); }
+
+  
+
+  /* AUTH BUTTON */
+  #auth-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    display: flex; justify-content: flex-end; align-items: center;
+    padding: 8px 16px;
+    background: rgba(10,21,6,0.9); backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    gap: 10px;
+  }
+  #auth-status { font-size: 10px; color: rgba(255,255,255,0.35); }
+  #auth-status.online { color: #c8f0b0; }
+  .btn-auth { padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .btn-signin { background: #c8f0b0; color: #0a1a06; }
+  .btn-signout { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
+  #app { padding-top: 52px; }
+
+  /* EDIT MODAL */
+  #edit-modal {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    align-items: flex-end; justify-content: center;
+  }
+  #edit-modal.open { display: flex; }
+  #edit-modal-inner {
+    background: #0f2008; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px 24px 0 0; padding: 24px 20px 40px;
+    width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+  }
+  #edit-modal-title { font-family: 'Playfair Display', serif; font-size: 18px; margin-bottom: 16px; }
+  .edit-btn { 
+    padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer;
+    font-size: 10px; font-family: 'DM Mono', monospace; font-weight: 600;
+    background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45);
+    margin-left: 6px;
+  }
+  .edit-btn:hover { background: rgba(255,255,255,0.13); color: white; }
+  .del-btn {
+    background: rgba(240,100,80,0.1); color: #f07060;
+  }
+</style>
+</head>
+<body>
+
+<div id="auth-bar">
+  <span id="auth-status">○ Sin sincronizar</span>
+  <button class="btn-auth btn-signin" id="btn-signin" onclick="signIn()">Conectar Google</button>
+  <button class="btn-auth btn-signout" id="btn-signout" style="display:none" onclick="signOut()">Desconectar</button>
+</div>
+<div id="app">
+  <div id="header">
+    <div>
+      <h1>Mis Finanzas</h1>
+      <p class="sub conn-off" id="conn-status">○ Modo demo</p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <!-- stat cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px" id="dash-stats"></div>
+    <!-- charts row -->
+    <div style="display:grid;grid-template-columns:1fr;gap:12px" id="dash-charts"></div>
+  </div>
+
+  <!-- GASTOS / INGRESOS -->
+  <div id="page-gastos" class="page">
+    <div class="section-header">
+      <div class="toggle">
+        <button class="toggle-btn active-g" id="tog-gastos" onclick="switchModo('gastos')">↗ Gastos</button>
+        <button class="toggle-btn" id="tog-ingresos" onclick="switchModo('ingresos')">↙ Ingresos</button>
+      </div>
+      <button class="btn btn-yellow" id="btn-nuevo-gasto" onclick="toggleForm('gasto')">+ Nuevo gasto</button>
+    </div>
+    <div id="form-gasto" style="display:none">
+      <div class="card">
+        <div class="form-grid">
+          <div><label class="form-label">Fecha</label><input type="date" id="g-fecha" class="form-input"></div>
+          <div><label class="form-label">Categoría</label>
+            <select id="g-cat" class="form-input">
+              <option>Alquiler</option><option selected>Alimentación</option><option>Transporte</option>
+              <option>Salud</option><option>Programas</option><option>Bolucompras</option>
+              <option>Suscripciones</option><option>Otros</option>
+            </select>
+          </div>
+          <div class="form-full"><label class="form-label">Descripción</label><input type="text" id="g-desc" class="form-input" placeholder="ej. Supermercado"></div>
+          <div><label class="form-label">Monto</label><input type="number" id="g-monto" class="form-input" placeholder="0"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;grid-column:1/-1 if needed">
+            <div><label class="form-label">Moneda</label>
+              <select id="g-moneda" class="form-input"><option value="ARS">ARS</option><option value="USD">USD</option></select>
+            </div>
+            <div><label class="form-label">Cuenta</label>
+              <select id="g-cuenta" class="form-input" onchange="autoMoneda('g')">
+                <option>Chase</option><option>ARQ</option><option>Nexo</option><option>Lemon</option><option selected>MP Crédito</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button class="btn-submit btn-yellow" onclick="guardarGasto()">Guardar gasto</button>
+      </div>
+    </div>
+    <div id="form-ingreso" style="display:none">
+      <div class="card" style="border-color:rgba(134,217,200,0.2)">
+        <div class="form-grid">
+          <div><label class="form-label">Fecha</label><input type="date" id="i-fecha" class="form-input"></div>
+          <div><label class="form-label">Categoría</label>
+            <select id="i-cat" class="form-input">
+              <option selected>Sueldo</option><option>Freelance</option><option>Inversiones</option>
+              <option>Venta</option><option>Otros</option>
+            </select>
+          </div>
+          <div class="form-full"><label class="form-label">Descripción</label><input type="text" id="i-desc" class="form-input" placeholder="ej. Sueldo abril"></div>
+          <div><label class="form-label">Monto</label><input type="number" id="i-monto" class="form-input" placeholder="0"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><label class="form-label">Moneda</label>
+              <select id="i-moneda" class="form-input"><option value="ARS" selected>ARS</option><option value="USD">USD</option></select>
+            </div>
+            <div><label class="form-label">Cuenta destino</label>
+              <select id="i-cuenta" class="form-input" onchange="autoMoneda('i')">
+                <option>Chase</option><option>ARQ</option><option>Nexo</option><option selected>Lemon</option><option>MP Crédito</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button class="btn-submit" style="background:#86d9c8;color:#061a18" onclick="guardarIngreso()">Guardar ingreso</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0" id="tabla-gastos-wrap">
+      <div class="tbl-wrap"><table class="tbl" id="tabla-gastos"></table></div>
+    </div>
+  </div>
+
+  <!-- PATRIMONIO -->
+  <div id="page-patrimonio" class="page">
+    <div class="section-title">Patrimonio & Balance</div>
+    <div class="card-grid-3" id="pat-stats"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="pat-cuentas"></div>
+    <div class="card" id="pat-dist"></div>
+    <div class="card" style="background:rgba(200,240,176,0.03);border-color:rgba(200,240,176,0.1)">
+      <div style="font-size:10px;color:rgba(200,240,176,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">⚙️ Conectar Google Sheets</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.35);line-height:1.7">
+        Abrí el archivo <code style="color:#c8f0b0">finanzas.html</code> en un editor de texto y reemplazá<br>
+        <code style="color:#c8f0b0">TU_SHEET_ID_ACA</code> y <code style="color:#c8f0b0">TU_API_KEY_ACA</code> arriba del todo.
+      </div>
+    </div>
+  </div>
+
+  <!-- BITCOIN -->
+  <div id="page-nexo" class="page">
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;border-radius:50%;background:rgba(247,147,26,0.18);display:flex;align-items:center;justify-content:center;font-size:20px">₿</div>
+        <div class="section-title">Bitcoin</div>
+      </div>
+      <button class="btn btn-orange" onclick="toggleForm('nexo')">+ Operación</button>
+    </div>
+
+    <!-- Precio editable -->
+    <div class="card" style="border-color:rgba(247,147,26,0.15)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div class="stat-label">Precio BTC actual</div>
+          <div class="stat-sub" style="margin-top:4px">Actualizalo manualmente cada día</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="color:rgba(255,255,255,0.4);font-size:14px">$</span>
+          <input type="number" id="btc-precio-input" class="form-input" style="width:130px;font-family:'Playfair Display',serif;font-size:20px;color:#f7931a;text-align:right;padding:8px 10px" oninput="updateBTCPrecio()">
+          <span style="color:rgba(255,255,255,0.4);font-size:11px">USD</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- P&L Card -->
+    <div id="btc-pnl-card"></div>
+
+    <!-- Operaciones -->
+    <div class="card" style="padding:0">
+      <div class="tbl-wrap"><table class="tbl" id="tabla-nexo"></table></div>
+    </div>
+
+    <!-- Operaciones -->
+    <div class="card" style="padding:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 0">
+        <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.1em">Operaciones</div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" id="tabla-nexo"></table></div>
+    </div>
+
+    <!-- Form -->
+    <div id="form-nexo" style="display:none">
+      <div class="card" style="border-color:rgba(247,147,26,0.2);background:rgba(247,147,26,0.03)">
+        <div class="form-grid">
+          <div><label class="form-label">Fecha</label><input type="date" id="n-fecha" class="form-input"></div>
+          <div><label class="form-label">Tipo</label>
+            <select id="n-tipo" class="form-input" style="color:#c8f0b0" onchange="this.style.color=this.value==='Compra'?'#c8f0b0':'#f0a070'">
+              <option value="Compra">▼ Compra</option><option value="Venta">▲ Venta</option>
+            </select>
+          </div>
+          <div><label class="form-label">Precio BTC (USD)</label><input type="number" id="n-precio" class="form-input" placeholder="95000" oninput="calcBTCCantidad()"></div>
+          <div><label class="form-label">Total USD invertido</label><input type="number" id="n-total" class="form-input" placeholder="475" style="color:#f7931a" oninput="calcBTCCantidad()"></div>
+          <div class="form-full"><label class="form-label">Cantidad BTC (calculada automáticamente)</label><input type="number" step="0.00001" id="n-cantidad" class="form-input" placeholder="0.00500" style="color:#86d9c8;opacity:.7" readonly></div>
+          <div class="form-full"><label class="form-label">Notas</label><input type="text" id="n-notas" class="form-input" placeholder="ej. DCA mensual"></div>
+        </div>
+        <div id="btc-preview" class="btc-preview" style="display:none"></div>
+        <button class="btn-submit btn-orange" onclick="guardarNexo()">Guardar operación</button>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav id="nav">
+  <button class="nav-btn active" id="nav-dashboard" onclick="goTo('dashboard')">
+    <span class="nav-icon">◈</span>Dashboard
+  </button>
+  <button class="nav-btn" id="nav-gastos" onclick="goTo('gastos')">
+    <span class="nav-icon">↗</span>Gastos
+  </button>
+  <button class="nav-btn" id="nav-patrimonio" onclick="goTo('patrimonio')">
+    <span class="nav-icon">▣</span>Patrimonio
+  </button>
+  <button class="nav-btn" id="nav-nexo" onclick="goTo('nexo')">
+    <span class="nav-icon">₿</span>Bitcoin
+  </button>
+</nav>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const CONFIG = {
+  SHEET_ID: "1hVF5xozcOby1Rf32ha9v3L4N4dsqj-co8bXOJM4bBXE",
+  API_KEY:  "TU_API_KEY_ACA",
+  CLIENT_ID: "796994987002-fkpe3he82hukm9mburegcarbmfd4iomt.apps.googleusercontent.com",
+  SCOPES: "https://www.googleapis.com/auth/spreadsheets",
+  TABS: { gastos:"Gastos", ingresos:"Ingresos", inversiones:"Inversiones", cuentas:"Cuentas", nexo:"Nexo_BTC" }
+};
+const USD_RATE = 1200;
+let btcPrecioActual = 97500;
+const BTC_PRECIO = 97500;
+const PALETTE = ["#c8f0b0","#86d9c8","#f0d080","#f0a070","#a0b8f0","#d0a0f0","#f0b0c8","#b0e0f0"];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let DATA = {
+  gastos: [
+    {fecha:"2026-04-01",descripcion:"Alquiler abril",categoria:"Alquiler",monto:320000,moneda:"ARS",cuenta:"Lemon"},
+    {fecha:"2026-04-05",descripcion:"Netflix",categoria:"Suscripciones",monto:8,moneda:"USD",cuenta:"Chase"},
+    {fecha:"2026-04-10",descripcion:"Combustible",categoria:"Transporte",monto:60000,moneda:"ARS",cuenta:"MP Crédito"},
+    {fecha:"2026-04-15",descripcion:"Gym",categoria:"Salud",monto:25000,moneda:"ARS",cuenta:"Lemon"},
+    {fecha:"2026-04-20",descripcion:"Spotify",categoria:"Suscripciones",monto:5,moneda:"USD",cuenta:"Chase"},
+    {fecha:"2026-04-22",descripcion:"Supermercado",categoria:"Alimentación",monto:35000,moneda:"ARS",cuenta:"MP Crédito"},
+    {fecha:"2026-05-01",descripcion:"Supermercado",categoria:"Alimentación",monto:52000,moneda:"ARS",cuenta:"MP Crédito"},
+    {fecha:"2026-05-03",descripcion:"Zapatillas",categoria:"Bolucompras",monto:45,moneda:"USD",cuenta:"Chase"},
+  ],
+  ingresos: [
+    {fecha:"2026-04-30",descripcion:"Sueldo abril",categoria:"Sueldo",monto:850000,moneda:"ARS",cuenta:"Lemon"},
+    {fecha:"2026-04-30",descripcion:"Freelance",categoria:"Freelance",monto:200,moneda:"USD",cuenta:"Chase"},
+    {fecha:"2026-05-31",descripcion:"Sueldo mayo",categoria:"Sueldo",monto:850000,moneda:"ARS",cuenta:"Lemon"},
+  ],
+  inversiones: [],
+  cuentas: [
+    {nombre:"Chase",descripcion:"Ahorros principal",saldo:3055,moneda:"USD"},
+    {nombre:"ARQ",descripcion:"Ahorro viajes",saldo:0,moneda:"USD"},
+    {nombre:"Nexo",descripcion:"Cuenta Nexo",saldo:0,moneda:"USD"},
+  ],
+  nexo: [
+    {fecha:"2025-11-10",tipo:"Compra",cantidad:0.005,precio_btc:72000,total_usd:360,notas:"DCA mensual"},
+    {fecha:"2025-12-15",tipo:"Compra",cantidad:0.004,precio_btc:98000,total_usd:392,notas:"DCA mensual"},
+    {fecha:"2026-01-20",tipo:"Compra",cantidad:0.003,precio_btc:104000,total_usd:312,notas:"DCA mensual"},
+    {fecha:"2026-02-08",tipo:"Venta",cantidad:0.002,precio_btc:96000,total_usd:192,notas:"Take profit parcial"},
+    {fecha:"2026-03-05",tipo:"Compra",cantidad:0.006,precio_btc:88000,total_usd:528,notas:"Compra en baja"},
+    {fecha:"2026-04-12",tipo:"Compra",cantidad:0.004,precio_btc:95000,total_usd:380,notas:"DCA mensual"},
+  ]
+};
+let currentPage = 'dashboard';
+let modoGastos = 'gastos';
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const toUSD = (m,mon) => mon==="USD" ? m : m/USD_RATE;
+
+function showToast(msg, color='#f0d080') {
+  const existing = document.getElementById('toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.id = 'toast';
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:${color};color:#0a1a06;padding:10px 18px;border-radius:12px;font-family:DM Mono,monospace;font-size:12px;font-weight:600;z-index:9999;max-width:280px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+const fmt   = n => `$${Number(n).toLocaleString("en-US",{maximumFractionDigits:0})}`;
+const fmtARS= n => `$${Number(n).toLocaleString("es-AR",{maximumFractionDigits:0})}`;
+const fmtBTC= n => `₿${Number(n).toFixed(5)}`;
+
+// Saldo dinámico: saldo base + ingresos USD - gastos USD para esa cuenta
+function saldoCuenta(nombre) {
+  const base = DATA.cuentas.find(c=>c.nombre===nombre)?.saldo || 0;
+  const ingresados = DATA.ingresos.filter(i=>i.cuenta===nombre&&i.moneda==="USD").reduce((s,i)=>s+i.monto,0);
+  const gastados   = DATA.gastos.filter(g=>g.cuenta===nombre&&g.moneda==="USD").reduce((s,g)=>s+g.monto,0);
+  return base + ingresados - gastados;
+}
+const today = () => new Date().toISOString().split('T')[0];
+const curMes= () => new Date().toISOString().slice(0,7);
+
+const DATA_KEY = 'finanzas_data';
+function saveData() {
+  try {
+    localStorage.setItem(DATA_KEY, JSON.stringify({
+      gastos:   DATA.gastos,
+      ingresos: DATA.ingresos,
+      nexo:     DATA.nexo,
+    }));
+  } catch(e) { console.error('Error saving data:', e); }
+}
+function loadData() {
+  try {
+    const saved = localStorage.getItem(DATA_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.gastos)   DATA.gastos   = parsed.gastos;
+      if (parsed.ingresos) DATA.ingresos = parsed.ingresos;
+      if (parsed.nexo)     DATA.nexo     = parsed.nexo;
+    }
+  } catch(e) { console.error('Error loading data:', e); }
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active','active-btc'));
+  const nb = document.getElementById('nav-' + page);
+  if (page === 'nexo') nb.classList.add('active-btc');
+  else nb.classList.add('active');
+  currentPage = page;
+  renderPage(page);
+}
+
+// ─── RENDER ROUTER ───────────────────────────────────────────────────────────
+function renderPage(p) {
+  if (p==='dashboard')   renderDashboard();
+  if (p==='gastos')      renderGastos();
+  if (p==='patrimonio')  renderPatrimonio();
+  if (p==='nexo')        renderNexo();
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const mes = curMes();
+  const btcStack = DATA.nexo.reduce((s,t) => s+(t.tipo==="Compra"?t.cantidad:-t.cantidad),0);
+  const btcValor = btcStack * (typeof btcPrecioActual!=="undefined"?btcPrecioActual:97500);
+  // Patrimonio: cuentas USD + criptos USD + BTC. Lemon y MP Crédito son ARS, no suman.
+  const cuentasUSD = DATA.cuentas.filter(c=>c.moneda==="USD").reduce((s,c)=>s+saldoCuenta(c.nombre),0);
+  const totalPat = cuentasUSD + btcValor;
+  const gUSD = DATA.gastos.filter(g=>g.fecha.startsWith(mes)&&g.moneda==="USD").reduce((s,g)=>s+g.monto,0);
+  const gARS = DATA.gastos.filter(g=>g.fecha.startsWith(mes)&&g.moneda==="ARS").reduce((s,g)=>s+g.monto,0);
+  // Ingresos: solo USD
+  const ingUSD = DATA.ingresos.filter(g=>g.fecha.startsWith(mes)&&g.moneda==="USD").reduce((s,g)=>s+g.monto,0);
+  // Balance: ingresos USD vs gastos USD
+  const balance = ingUSD - gUSD;
+
+  const stats = [
+    {label:"Patrimonio total", value:fmt(totalPat), sub:"Cuentas + BTC", color:"#c8f0b0"},
+    {label:"Ingresos este mes", value:fmt(ingUSD), sub:"en USD", color:"#86d9c8"},
+    {label:"Gastos este mes", value:`${fmtARS(gARS)} ARS`, sub:`+ ${fmt(gUSD)} USD`, color:"#f0d080"},
+  ];
+
+  const sc = document.getElementById('dash-stats');
+  sc.innerHTML = stats.map(s=>`
+    <div class="card stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value" style="color:${s.color}">${s.value}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>`).join('');
+
+
+}
+
+// ─── GASTOS ──────────────────────────────────────────────────────────────────
+function switchModo(m) {
+  modoGastos = m;
+  document.getElementById('tog-gastos').className = 'toggle-btn' + (m==='gastos'?' active-g':'');
+  document.getElementById('tog-ingresos').className = 'toggle-btn' + (m==='ingresos'?' active-i':'');
+  document.getElementById('btn-nuevo-gasto').textContent = m==='gastos'?'+ Nuevo gasto':'+ Nuevo ingreso';
+  document.getElementById('btn-nuevo-gasto').className = 'btn ' + (m==='gastos'?'btn-yellow':'btn-teal');
+  document.getElementById('btn-nuevo-gasto').onclick = ()=>toggleForm(m==='gastos'?'gasto':'ingreso');
+  document.getElementById('form-gasto').style.display='none';
+  document.getElementById('form-ingreso').style.display='none';
+  renderGastos();
+}
+
+function toggleForm(which) {
+  const fg = document.getElementById('form-gasto');
+  const fi = document.getElementById('form-ingreso');
+  const fn = document.getElementById('form-nexo');
+  const finv = document.getElementById('form-inv');
+  if (which==='gasto') { fg.style.display = fg.style.display==='none'?'block':'none'; fi.style.display='none'; }
+  if (which==='ingreso') { fi.style.display = fi.style.display==='none'?'block':'none'; fg.style.display='none'; }
+  if (which==='nexo') { fn.style.display = fn.style.display==='none'?'block':'none'; }
+  if (which==='inv') { finv.style.display = finv.style.display==='none'?'block':'none'; }
+}
+
+
+function autoMoneda(prefix) {
+  const cuenta = document.getElementById(prefix + '-cuenta').value;
+  const usd = ['Chase','ARQ','Nexo'];
+  const monedaEl = document.getElementById(prefix + '-moneda');
+  if (monedaEl) monedaEl.value = usd.includes(cuenta) ? 'USD' : 'ARS';
+}
+
+function renderGastos() {
+  const list = modoGastos==='gastos' ? DATA.gastos : DATA.ingresos;
+  const isG = modoGastos==='gastos';
+  const tbl = document.getElementById('tabla-gastos');
+  // Build reversed index map so we can find real index
+  const reversed = [...list.map((g,i)=>({...g,_idx:i}))].reverse();
+  tbl.innerHTML = `
+    <thead><tr>
+      <th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th><th></th>
+    </tr></thead>
+    <tbody>
+      ${reversed.map(g=>`
+        <tr>
+          <td style="color:rgba(255,255,255,0.4);font-size:11px">${g.fecha}</td>
+          <td style="color:white">${g.descripcion}</td>
+          <td><span class="badge" style="background:${isG?'rgba(255,255,255,0.06)':'rgba(134,217,200,0.1)'};color:${isG?'rgba(255,255,255,0.45)':'#86d9c8'}">${g.categoria}</span></td>
+          <td style="text-align:right;color:${isG?'#f0d080':'#86d9c8'}">${isG?'-':'+'}${Number(g.monto).toLocaleString()} <span style="font-size:10px;opacity:.5">${g.moneda}</span></td>
+          <td><button class="edit-btn" onclick="openEditModal(${g._idx},'${isG?'gastos':'ingresos'}')">✏️</button></td>
+        </tr>`).join('')}
+    </tbody>`;
+}
+
+async function guardarGasto() {
+  const f = {
+    fecha: document.getElementById('g-fecha').value || today(),
+    descripcion: document.getElementById('g-desc').value,
+    categoria: document.getElementById('g-cat').value,
+    monto: parseFloat(document.getElementById('g-monto').value),
+    moneda: document.getElementById('g-moneda').value,
+    cuenta: document.getElementById('g-cuenta').value,
+  };
+  if (!f.descripcion || !f.monto) return;
+  DATA.gastos.push(f);
+  saveData();
+  document.getElementById('g-desc').value=''; document.getElementById('g-monto').value='';
+  document.getElementById('form-gasto').style.display='none';
+  renderGastos();
+  renderDashboard();
+  renderPatrimonio();
+  if (!isSignedIn) {
+    showToast('Guardado localmente. Conectá Google para sincronizar con Sheets.');
+  } else {
+    await appendToSheet('Gastos', [f.fecha,f.descripcion,f.categoria,f.monto,f.moneda,f.cuenta]);
+  }
+}
+
+async function guardarIngreso() {
+  const f = {
+    fecha: document.getElementById('i-fecha').value || today(),
+    descripcion: document.getElementById('i-desc').value,
+    categoria: document.getElementById('i-cat').value,
+    monto: parseFloat(document.getElementById('i-monto').value),
+    moneda: document.getElementById('i-moneda').value,
+    cuenta: document.getElementById('i-cuenta').value,
+  };
+  if (!f.descripcion || !f.monto) return;
+  DATA.ingresos.push(f);
+  saveData();
+  document.getElementById('i-desc').value=''; document.getElementById('i-monto').value='';
+  document.getElementById('form-ingreso').style.display='none';
+  renderGastos();
+  renderDashboard();
+  renderPatrimonio();
+  await appendToSheet('Ingresos', [f.fecha,f.descripcion,f.categoria,f.monto,f.moneda,f.cuenta]);
+}
+
+// ─── INVERSIONES ─────────────────────────────────────────────────────────────
+function renderInversiones() {
+  const total = DATA.inversiones.reduce((s,i)=>s+toUSD(i.monto,i.moneda),0);
+  document.getElementById('inv-total').textContent = 'Total: ' + fmt(total) + ' USD';
+  document.getElementById('inv-cards').innerHTML = DATA.inversiones.map(inv=>`
+    <div class="card stat-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:white">${inv.nombre}</div>
+          <span class="badge" style="background:rgba(134,217,200,0.1);color:#86d9c8;margin-top:4px">Cripto</span>
+        </div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:#86d9c8">${fmt(toUSD(inv.monto,inv.moneda))}</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <span style="font-size:12px;color:#c8f0b0">+${inv.rendimiento}% anual</span>
+      </div>
+    </div>`).join('');
+}
+
+async function guardarInversion() {
+  const nombre = document.getElementById('inv-nombre-input')?.value || document.querySelector('#form-inv input[placeholder="ej. Ethereum"]')?.value || '';
+  const monto  = parseFloat(document.getElementById('inv-monto-input')?.value || document.querySelector('#form-inv input[placeholder="0"]')?.value || 0);
+  const rend   = parseFloat(document.getElementById('inv-rend-input')?.value || document.querySelectorAll('#form-inv input[type=number]')[1]?.value || 0);
+  if (!nombre || !monto) return;
+  const inv = { nombre, tipo: "Cripto", monto, moneda: "USD", rendimiento: rend };
+  DATA.inversiones.push(inv);
+  document.getElementById('form-inv').style.display = 'none';
+  document.getElementById('form-inv').querySelectorAll('input').forEach(i => i.value = '');
+  saveDataLocally();
+  renderInversiones();
+  await appendToSheet('Inversiones', [inv.nombre, inv.tipo, inv.monto, inv.moneda, inv.rendimiento]);
+}
+
+
+
+// ─── PATRIMONIO ──────────────────────────────────────────────────────────────
+function renderPatrimonio() {
+  const btcStack = DATA.nexo.reduce((s,t)=>s+(t.tipo==="Compra"?t.cantidad:-t.cantidad),0);
+  const btcValor = btcStack * (typeof btcPrecioActual!=="undefined"?btcPrecioActual:97500);
+  const totalInv = DATA.inversiones.reduce((s,i)=>s+toUSD(i.monto,i.moneda),0);
+  const totalCuentas = DATA.cuentas.filter(c=>c.moneda==="USD").reduce((s,c)=>s+saldoCuenta(c.nombre),0);
+  const total = totalCuentas + btcValor;
+
+  const stats = [
+    {label:"Total patrimonio", value:fmt(total), sub:"cuentas + BTC", color:"#c8f0b0"},
+    {label:"BTC", value:fmt(btcValor), sub:fmtBTC(btcStack), color:"#f7931a"},
+  ];
+  document.getElementById('pat-stats').innerHTML = stats.map(s=>`
+    <div class="card stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value" style="color:${s.color}">${s.value}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>`).join('');
+
+  const emojis = ["🏦","✈️","🔷"];
+  const colors = ["#c8f0b0","#86d9c8","#f7931a"];
+  // Only show Chase and ARQ
+  const cuentasVista = DATA.cuentas.filter(c=>c.nombre==="Chase"||c.nombre==="ARQ");
+  document.getElementById('pat-cuentas').innerHTML = cuentasVista.map((c,i)=>{
+    const saldo = saldoCuenta(c.nombre);
+    return `
+    <div class="card stat-card" style="gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:18px;color:white">${c.nombre}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px">${c.descripcion}</div>
+        </div>
+        <div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:18px">${emojis[i]||"💰"}</div>
+      </div>
+      <div style="font-family:'Playfair Display',serif;font-size:28px;color:${colors[i]}">${fmt(saldo)}<span style="font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.3);margin-left:6px">USD</span></div>
+    </div>`;
+  }).join('');
+
+  const breakdown = [
+    {label:"Chase", value:saldoCuenta("Chase"), color:"#c8f0b0"},
+    {label:"ARQ",   value:saldoCuenta("ARQ"),   color:"#86d9c8"},
+    {label:"Nexo",  value:saldoCuenta("Nexo"),  color:"#f7931a"},
+    {label:"Inversiones", value:totalInv,       color:"#f0d080"},
+    {label:"BTC",   value:btcValor,             color:"#a0b8f0"},
+  ];
+  document.getElementById('pat-dist').innerHTML = `
+    <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">Distribución del patrimonio</div>
+    <div class="bar-dist">
+      ${breakdown.map(b=>`<div style="flex:${b.value};background:${b.color};opacity:.82" title="${b.label}: ${fmt(b.value)}"></div>`).join('')}
+    </div>
+    <div class="bar-legend">
+      ${breakdown.map(b=>`<div class="bar-item"><span class="bar-swatch" style="background:${b.color}"></span>${b.label} · ${fmt(b.value)} (${Math.round((b.value/total)*100)}%)</div>`).join('')}
+    </div>`;
+}
+
+// ─── NEXO BTC ────────────────────────────────────────────────────────────────
+function calcBTCCantidad() {
+  const p = parseFloat(document.getElementById('n-precio').value)||0;
+  const t = parseFloat(document.getElementById('n-total').value)||0;
+  if (p>0&&t>0) {
+    const cant = (t/p).toFixed(8);
+    document.getElementById('n-cantidad').value = cant;
+    const tipo = document.getElementById('n-tipo').value;
+    document.getElementById('btc-preview').style.display='block';
+    document.getElementById('btc-preview').innerHTML =
+      `${tipo==='Compra'?'Comprás':'Vendés'} <strong style="color:#f7931a">₿${Number(cant).toFixed(5)}</strong> a <strong style="color:white">$${Number(p).toLocaleString()}</strong> = <strong style="color:#f7931a">$${Number(t).toLocaleString()}</strong>`;
+  }
+}
+
+
+function updateBTCPrecio() {
+  const val = parseFloat(document.getElementById('btc-precio-input').value);
+  if (val > 0) { btcPrecioActual = val; renderNexoPnL(); }
+}
+
+function renderNexoPnL() {
+  const compras = DATA.nexo.filter(t=>t.tipo==="Compra");
+  const ventas  = DATA.nexo.filter(t=>t.tipo==="Venta");
+  const totComp = compras.reduce((s,t)=>s+t.cantidad,0);
+  const totVent = ventas.reduce((s,t)=>s+t.cantidad,0);
+  const stack = totComp - totVent;
+  const totalInvertido = compras.reduce((s,t)=>s+t.total_usd,0);
+  const totalVendido   = ventas.reduce((s,t)=>s+t.total_usd,0);
+  const costoNeto = totalInvertido - totalVendido;
+  const valorActual = stack * btcPrecioActual;
+  const pnl = valorActual - costoNeto;
+  const pnlPct = costoNeto > 0 ? ((valorActual/costoNeto)-1)*100 : 0;
+  const pos = pnl >= 0;
+
+  const card = document.getElementById('btc-pnl-card');
+  if (!card) return;
+  card.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card stat-card">
+        <div class="stat-label">Stack actual</div>
+        <div class="stat-value" style="color:#f7931a">${fmtBTC(stack)}</div>
+        <div class="stat-sub">≈ ${fmt(valorActual)} USD</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">Total invertido</div>
+        <div class="stat-value" style="color:#86d9c8">${fmt(costoNeto)}</div>
+        <div class="stat-sub">${compras.length} compras · ${ventas.length} ventas</div>
+      </div>
+      <div class="card stat-card" style="grid-column:1/-1;border-color:${pos?'rgba(200,240,176,0.15)':'rgba(240,160,112,0.15)'}">
+        <div class="stat-label">P&L no realizado</div>
+        <div class="stat-value" style="color:${pos?'#c8f0b0':'#f0a070'};font-size:28px">${pos?'+':''}${fmt(pnl)}</div>
+        <div class="stat-sub" style="color:${pos?'#c8f0b0':'#f0a070'}">${pos?'+':''}${pnlPct.toFixed(1)}% sobre inversión</div>
+      </div>
+    </div>`;
+}
+
+function renderNexo() {
+  // Init precio input
+  const inp = document.getElementById('btc-precio-input');
+  if (inp && !inp.value) inp.value = btcPrecioActual;
+
+  renderNexoPnL();
+
+  // Tabla con botones editar
+  document.getElementById('tabla-nexo').innerHTML = `
+    <thead><tr>
+      <th>Fecha</th><th>Tipo</th><th>BTC</th><th>Precio</th><th>Total USD</th><th></th>
+    </tr></thead>
+    <tbody>
+      ${[...DATA.nexo.map((t,i)=>({...t,_idx:i}))].reverse().map(t=>{
+        const esC = t.tipo==="Compra";
+        return `<tr>
+          <td style="color:rgba(255,255,255,0.4);font-size:11px">${t.fecha}</td>
+          <td><span class="badge" style="background:${esC?'rgba(200,240,176,0.1)':'rgba(240,160,112,0.1)'};color:${esC?'#c8f0b0':'#f0a070'}">${esC?'▼ Compra':'▲ Venta'}</span></td>
+          <td style="color:#f7931a">${fmtBTC(t.cantidad)}</td>
+          <td style="color:rgba(255,255,255,0.65)">$${t.precio_btc.toLocaleString()}</td>
+          <td style="color:white">${fmt(t.total_usd)}</td>
+          <td><button class="edit-btn" onclick="openEditNexo(${t._idx})">✏️</button></td>
+        </tr>`;
+      }).join('')}
+    </tbody>`;
+}
+
+async function guardarNexo() {
+  const t = {
+    fecha: document.getElementById('n-fecha').value || today(),
+    tipo: document.getElementById('n-tipo').value,
+    cantidad: parseFloat(document.getElementById('n-cantidad').value),
+    precio_btc: parseFloat(document.getElementById('n-precio').value),
+    total_usd: parseFloat(document.getElementById('n-total').value),
+    notas: document.getElementById('n-notas').value,
+  };
+  if (!t.cantidad || !t.precio_btc) return;
+  DATA.nexo.push(t);
+  saveData();
+  ['n-fecha','n-cantidad','n-precio','n-total','n-notas'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('btc-preview').style.display='none';
+  document.getElementById('form-nexo').style.display='none';
+  renderNexo();
+  await appendToSheet('Nexo_BTC', [t.fecha,t.tipo,t.cantidad,t.precio_btc,t.total_usd,t.notas]);
+}
+
+// ─── CHART UTIL ──────────────────────────────────────────────────────────────
+function drawLineChart(canvasId, data, color) {
+  const cv = document.getElementById(canvasId);
+  if (!cv || !data.length) return;
+  const w = cv.offsetWidth || 300, h = cv.height;
+  cv.width = w;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  const vals = data.map(d=>d.stack);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max-min || 1;
+  const pad = {t:10,b:24,l:10,r:10};
+  const cw = w-pad.l-pad.r, ch = h-pad.t-pad.b;
+  const pts = data.map((d,i)=>({
+    x: pad.l + (i/(data.length-1||1))*cw,
+    y: pad.t + (1-(d.stack-min)/range)*ch
+  }));
+
+  // Fill
+  const grad = ctx.createLinearGradient(0,pad.t,0,pad.t+ch);
+  grad.addColorStop(0, color+'48'); grad.addColorStop(1, color+'00');
+  ctx.beginPath(); ctx.moveTo(pts[0].x, pad.t+ch);
+  pts.forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x, pad.t+ch); ctx.closePath();
+  ctx.fillStyle=grad; ctx.fill();
+
+  // Line
+  ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+
+  // Dots + labels
+  ctx.fillStyle=color;
+  pts.forEach((p,i)=>{
+    ctx.beginPath(); ctx.arc(p.x,p.y,3,0,2*Math.PI); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='9px DM Mono';
+    ctx.fillText(data[i].label, p.x-10, pad.t+ch+14);
+    ctx.fillStyle=color;
+  });
+}
+
+// ─── GOOGLE AUTH & SYNC ──────────────────────────────────────────────────────
+let gapiReady = false;
+let gisReady = false;
+let tokenClient = null;
+let isSignedIn = false;
+
+function maybeInit() {
+  if (gapiReady && gisReady) {
+    const token = localStorage.getItem('gapi_token');
+    if (token) {
+      // Restore token silently
+      gapi.client.setToken({access_token: token});
+      isSignedIn = true;
+      updateAuthUI(true);
+      // Verify token is still valid with a lightweight call
+      gapi.client.sheets.spreadsheets.get({ spreadsheetId: CONFIG.SHEET_ID })
+        .then(() => {
+          console.log('✅ Token válido, cargando Sheet...');
+          loadAllFromSheet();
+        })
+        .catch(() => {
+          // Token expired — request new one silently
+          console.log('🔄 Token vencido, renovando...');
+          tokenClient.requestAccessToken({prompt: ''});
+        });
+    }
+  }
+}
+
+function signIn() {
+  if (!gapiReady || !gisReady) { alert('Cargando Google... esperá un segundo y volvé a intentar.'); return; }
+  tokenClient.requestAccessToken({prompt: 'consent'});
+}
+
+function signOut() {
+  const token = gapi.client.getToken();
+  if (token) google.accounts.oauth2.revoke(token.access_token);
+  gapi.client.setToken('');
+  localStorage.removeItem('gapi_token');
+  isSignedIn = false;
+  updateAuthUI(false);
+}
+
+function updateAuthUI(online) {
+  const token = gapi.client.getToken();
+  if (token) localStorage.setItem('gapi_token', token.access_token);
+  document.getElementById('auth-status').textContent = online ? '● Sincronizado con Sheets' : '○ Sin sincronizar';
+  document.getElementById('auth-status').className = online ? 'online' : '';
+  document.getElementById('btn-signin').style.display = online ? 'none' : 'inline-block';
+  document.getElementById('btn-signout').style.display = online ? 'inline-block' : 'none';
+}
+
+// ─── LOAD FROM SHEET ─────────────────────────────────────────────────────────
+async function loadAllFromSheet() {
+  try {
+    const tabs = ['Gastos','Ingresos','Inversiones','Cuentas','Nexo_BTC'];
+    const ranges = tabs.map(t => `${t}!A2:Z1000`);
+    const res = await gapi.client.sheets.spreadsheets.values.batchGet({
+      spreadsheetId: CONFIG.SHEET_ID,
+      ranges,
+    });
+    const [gastos, ingresos, inversiones, cuentas, nexo] = res.result.valueRanges;
+
+    DATA.gastos     = parseRows(gastos?.values,     ['fecha','descripcion','categoria','monto','moneda','cuenta'], {monto:'num'});
+    DATA.ingresos   = parseRows(ingresos?.values,   ['fecha','descripcion','categoria','monto','moneda','cuenta'], {monto:'num'});
+    DATA.inversiones= parseRows(inversiones?.values,['nombre','tipo','monto','moneda','rendimiento'], {monto:'num',rendimiento:'num'});
+    // Cuentas NO se sobreescriben — saldo base es fijo, saldoCuenta() calcula el dinamico
+    DATA.nexo       = parseRows(nexo?.values,       ['fecha','tipo','cantidad','precio_btc','total_usd','notas'], {cantidad:'num',precio_btc:'num',total_usd:'num'});
+
+    saveData(); // persist Sheet data locally
+    saveDataLocally();
+    renderPage(currentPage);
+  } catch(e) {
+    console.error('Error cargando Sheet:', e);
+  }
+}
+
+function parseRows(rows, keys, numFields={}) {
+  if (!rows) return [];
+  return rows.filter(r=>r[0]).map(r => {
+    const obj = {};
+    keys.forEach((k,i) => {
+      obj[k] = numFields[k]==='num' ? (parseFloat(r[i])||0) : (r[i]||'');
+    });
+    return obj;
+  });
+}
+
+// ─── APPEND TO SHEET ─────────────────────────────────────────────────────────
+
+// ─── SYNC COMPLETO ────────────────────────────────────────────────────────────
+// Reescribe toda una pestaña del Sheet con los datos actuales
+// Así nunca hay discrepancias por ediciones o borrados
+async function syncTabToSheet(tab) {
+  if (!isSignedIn) return;
+  const statusEl = document.getElementById('auth-status');
+  try {
+    if (statusEl) statusEl.textContent = '⟳ Sincronizando...';
+
+    let rows = [];
+    if (tab === 'Gastos') {
+      rows = DATA.gastos.map(g => [g.fecha, g.descripcion, g.categoria, g.monto, g.moneda, g.cuenta]);
+    } else if (tab === 'Ingresos') {
+      rows = DATA.ingresos.map(g => [g.fecha, g.descripcion, g.categoria, g.monto, g.moneda, g.cuenta]);
+    } else if (tab === 'Nexo_BTC') {
+      rows = DATA.nexo.map(t => [t.fecha, t.tipo, t.cantidad, t.precio_btc, t.total_usd, t.notas]);
+    } else if (tab === 'Inversiones') {
+      rows = DATA.inversiones.map(i => [i.nombre, i.tipo, i.monto, i.moneda, i.rendimiento]);
+    }
+
+    // 1. Borra todo el contenido existente (excepto header)
+    await gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: CONFIG.SHEET_ID,
+      range: `${tab}!A2:Z1000`,
+    });
+
+    // 2. Reescribe con datos actuales
+    if (rows.length > 0) {
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: CONFIG.SHEET_ID,
+        range: `${tab}!A2`,
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: rows },
+      });
+    }
+
+    if (statusEl) { statusEl.textContent = '● Sincronizado con Sheets'; statusEl.className = 'online'; }
+    console.log(`✅ Sheet sincronizado: ${tab} (${rows.length} filas)`);
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '⚠️ Error al sincronizar';
+    console.error('Error sincronizando Sheet:', e);
+  }
+}
+
+async function appendToSheet(tab, row) {
+  if (!isSignedIn) { console.warn('No conectado a Google, dato guardado solo localmente'); return; }
+  try {
+    const statusEl = document.getElementById('auth-status');
+    if (statusEl) { statusEl.textContent = '⟳ Sincronizando...'; }
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: CONFIG.SHEET_ID,
+      range: `${tab}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      resource: { values: [row] },
+    });
+    if (statusEl) { statusEl.textContent = '● Sincronizado con Sheets'; statusEl.className = 'online'; }
+    console.log(`✅ Guardado en Sheet: ${tab}`);
+  } catch(e) {
+    const statusEl = document.getElementById('auth-status');
+    if (statusEl) { statusEl.textContent = '⚠️ Error al sincronizar'; }
+    console.error('Error escribiendo en Sheet:', e);
+    console.error('Error guardando en Sheet:', e);
+  }
+}
+
+// ─── OVERRIDE GUARDAR FUNCTIONS ───────────────────────────────────────────────
+
+
+
+
+
+// Load GAPI & GIS — wrapped so PIN always works even if Google fails
+window.addEventListener('load', () => {
+  // Google services load separately — app works offline if they fail
+  try {
+    if (typeof gapi !== 'undefined') {
+      gapi.load('client', async () => {
+        try {
+          await gapi.client.init({
+            apiKey: CONFIG.API_KEY,
+            discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+          });
+          gapiReady = true;
+          maybeInit();
+        } catch(e) { console.warn('GAPI init failed:', e); }
+      });
+    }
+    if (typeof google !== 'undefined' && google.accounts) {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CONFIG.CLIENT_ID,
+        scope: CONFIG.SCOPES,
+        callback: async (resp) => {
+          if (resp.error) return;
+          isSignedIn = true;
+          updateAuthUI(true);
+          await loadAllFromSheet();
+        },
+      });
+      gisReady = true;
+      maybeInit();
+    }
+  } catch(e) { console.warn('Google services unavailable, running offline:', e); }
+
+  // Register modal close listeners after DOM is ready
+  const editModal = document.getElementById('edit-modal');
+  if (editModal) {
+    editModal.addEventListener('click', function(e) {
+      if (e.target === this) closeEditModal();
+    });
+  }
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+// Load persisted data from localStorage
+loadData();
+// ─── LOCAL DATA PERSISTENCE ──────────────────────────────────────────────────
+// DATA_KEY already declared above — using saveData() / loadData()
+function saveDataLocally() { saveData(); }
+function loadDataLocally() { loadData(); }
+
+// Wrap all save functions to also persist locally
+const _origAppendToSheet = appendToSheet;
+appendToSheet = async function(tab, row) {
+  saveDataLocally();
+  return _origAppendToSheet(tab, row);
+};
+
+// Also save after each guardar
+const wrapSave = fn => async function(...args) {
+  const result = await fn.apply(this, args);
+  saveDataLocally();
+  return result;
+};
+
+// Load local data first (will be overwritten by Sheet data if signed in)
+loadDataLocally();
+
+// PIN is initialized in window load event above
+document.getElementById('g-fecha').value = today();
+document.getElementById('i-fecha').value = today();
+document.getElementById('n-fecha').value = today();
+renderDashboard();
+
+
+
+
+// ─── EDIT MODAL ──────────────────────────────────────────────────────────────
+let editIdx = -1;
+let editTipo = 'gastos';
+
+function openEditModal(idx, tipo) {
+  editIdx = idx;
+  editTipo = tipo;
+  const item = tipo === 'gastos' ? DATA.gastos[idx] : DATA.ingresos[idx];
+  document.getElementById('edit-modal-title').textContent = tipo === 'gastos' ? '✏️ Editar gasto' : '✏️ Editar ingreso';
+  document.getElementById('e-fecha').value = item.fecha;
+  document.getElementById('e-desc').value = item.descripcion;
+  document.getElementById('e-monto').value = item.monto;
+  document.getElementById('e-moneda').value = item.moneda;
+  document.getElementById('e-cuenta').value = item.cuenta;
+
+  // Populate categories
+  const cats = tipo === 'gastos'
+    ? ["Alquiler","Alimentación","Transporte","Salud","Programas","Bolucompras","Suscripciones","Otros"]
+    : ["Sueldo","Freelance","Inversiones","Venta","Otros"];
+  const catSel = document.getElementById('e-cat');
+  catSel.innerHTML = cats.map(c=>`<option${c===item.categoria?' selected':''}>${c}</option>`).join('');
+
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editIdx = -1;
+}
+
+async function guardarEdicion() {
+  if (editIdx < 0) return;
+  const updated = {
+    fecha:       document.getElementById('e-fecha').value,
+    descripcion: document.getElementById('e-desc').value,
+    categoria:   document.getElementById('e-cat').value,
+    monto:       parseFloat(document.getElementById('e-monto').value),
+    moneda:      document.getElementById('e-moneda').value,
+    cuenta:      document.getElementById('e-cuenta').value,
+  };
+
+  if (editTipo === 'gastos') DATA.gastos[editIdx] = updated;
+  else DATA.ingresos[editIdx] = updated;
+  saveData();
+
+  // Reescribe toda la pestaña para garantizar sincronización perfecta
+  const tab = editTipo === 'gastos' ? 'Gastos' : 'Ingresos';
+  await syncTabToSheet(tab);
+
+  closeEditModal();
+  renderGastos();
+  if (currentPage === 'dashboard') renderDashboard();
+}
+
+async function eliminarRegistro() {
+  if (editIdx < 0) return;
+  if (!confirm('¿Eliminás este registro?')) return;
+
+  if (editTipo === 'gastos') DATA.gastos.splice(editIdx, 1);
+  else DATA.ingresos.splice(editIdx, 1);
+  saveData();
+
+  // Reescribe toda la pestaña para garantizar sincronización perfecta
+  const tab2 = editTipo === 'gastos' ? 'Gastos' : 'Ingresos';
+  await syncTabToSheet(tab2);
+
+  closeEditModal();
+  renderGastos();
+  if (currentPage === 'dashboard') renderDashboard();
+}
+
+// Close modal tapping outside — registered after DOM ready
+// (handled via window.addEventListener load below)
+
+
+// ─── EDIT NEXO ───────────────────────────────────────────────────────────────
+let editNexoIdx = -1;
+
+function openEditNexo(idx) {
+  editNexoIdx = idx;
+  const t = DATA.nexo[idx];
+  document.getElementById('en-fecha').value = t.fecha || '';
+  document.getElementById('en-tipo').value = t.tipo || 'Compra';
+  document.getElementById('en-tipo').style.color = t.tipo==='Compra'?'#c8f0b0':'#f0a070';
+  document.getElementById('en-precio').value = t.precio_btc || '';
+  document.getElementById('en-total').value = t.total_usd || '';
+  document.getElementById('en-cantidad').value = t.cantidad || '';
+  document.getElementById('en-notas').value = t.notas || '';
+  const m = document.getElementById('edit-nexo-modal');
+  m.style.display = 'flex';
+  m.style.alignItems = 'flex-end';
+  m.style.justifyContent = 'center';
+}
+
+function closeEditNexo() {
+  document.getElementById('edit-nexo-modal').style.display = 'none';
+  editNexoIdx = -1;
+}
+
+function calcEditNexo() {
+  const p = parseFloat(document.getElementById('en-precio').value)||0;
+  const t = parseFloat(document.getElementById('en-total').value)||0;
+  if (p>0&&t>0) document.getElementById('en-cantidad').value = (t/p).toFixed(8);
+}
+
+async function guardarEditNexo() {
+  if (editNexoIdx < 0) return;
+  const updated = {
+    fecha: document.getElementById('en-fecha').value,
+    tipo: document.getElementById('en-tipo').value,
+    precio_btc: parseFloat(document.getElementById('en-precio').value),
+    total_usd: parseFloat(document.getElementById('en-total').value),
+    cantidad: parseFloat(document.getElementById('en-cantidad').value),
+    notas: document.getElementById('en-notas').value,
+  };
+  DATA.nexo[editNexoIdx] = updated;
+  saveData();
+  await syncTabToSheet('Nexo_BTC');
+  closeEditNexo();
+  renderNexo();
+}
+
+async function eliminarNexo() {
+  if (editNexoIdx < 0) return;
+  if (!confirm('¿Eliminás esta operación?')) return;
+  DATA.nexo.splice(editNexoIdx, 1);
+  saveData();
+  await syncTabToSheet('Nexo_BTC');
+  closeEditNexo();
+  renderNexo();
+}
+
+// close on overlay click handled by onclick on modal div
+
+
+
+</script>
+
+<!-- EDIT NEXO MODAL -->
+<div id="edit-nexo-modal" onclick="if(event.target===this)closeEditNexo()" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center">
+  <div style="background:#1a0d00;border:1px solid rgba(247,147,26,0.2);border-radius:24px 24px 0 0;padding:24px 20px 40px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:'Playfair Display',serif;font-size:18px">✏️ Editar operación BTC</div>
+      <button onclick="closeEditNexo()" style="background:rgba(255,255,255,0.08);border:none;color:white;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:'DM Mono',monospace;font-size:12px">✕ Cerrar</button>
+    </div>
+    <div class="form-grid">
+      <div><label class="form-label">Fecha</label><input type="date" id="en-fecha" class="form-input"></div>
+      <div><label class="form-label">Tipo</label>
+        <select id="en-tipo" class="form-input" style="color:#c8f0b0" onchange="this.style.color=this.value==='Compra'?'#c8f0b0':'#f0a070'">
+          <option value="Compra">▼ Compra</option><option value="Venta">▲ Venta</option>
+        </select>
+      </div>
+      <div><label class="form-label">Precio BTC (USD)</label><input type="number" id="en-precio" class="form-input" oninput="calcEditNexo()"></div>
+      <div><label class="form-label">Total USD</label><input type="number" id="en-total" class="form-input" style="color:#f7931a" oninput="calcEditNexo()"></div>
+      <div class="form-full"><label class="form-label">Cantidad BTC (auto)</label><input type="number" id="en-cantidad" class="form-input" style="color:#86d9c8;opacity:.7" readonly></div>
+      <div class="form-full"><label class="form-label">Notas</label><input type="text" id="en-notas" class="form-input"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <button class="btn-submit" style="background:rgba(240,100,80,0.12);color:#f07060;margin-top:0" onclick="eliminarNexo()">🗑 Eliminar</button>
+      <button class="btn-submit btn-orange" style="margin-top:0" onclick="guardarEditNexo()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-modal">
+  <div id="edit-modal-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div id="edit-modal-title">Editar registro</div>
+      <button onclick="closeEditModal()" style="background:rgba(255,255,255,0.08);border:none;color:white;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:'DM Mono',monospace;font-size:12px">✕ Cerrar</button>
+    </div>
+    <div class="form-grid">
+      <div><label class="form-label">Fecha</label><input type="date" id="e-fecha" class="form-input"></div>
+      <div><label class="form-label">Categoría</label><select id="e-cat" class="form-input"></select></div>
+      <div class="form-full"><label class="form-label">Descripción</label><input type="text" id="e-desc" class="form-input"></div>
+      <div><label class="form-label">Monto</label><input type="number" id="e-monto" class="form-input"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="form-label">Moneda</label>
+          <select id="e-moneda" class="form-input"><option value="ARS">ARS</option><option value="USD">USD</option></select>
+        </div>
+        <div><label class="form-label">Cuenta</label>
+          <select id="e-cuenta" class="form-input">
+            <option>Chase</option><option>ARQ</option><option>Lemon</option><option>MP Crédito</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <button class="btn-submit del-btn" style="background:rgba(240,100,80,0.12);color:#f07060;margin-top:0" onclick="eliminarRegistro()">🗑 Eliminar</button>
+      <button class="btn-submit" style="background:#c8f0b0;color:#0a1a06;margin-top:0" onclick="guardarEdicion()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
